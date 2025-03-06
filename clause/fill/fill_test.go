@@ -1,37 +1,37 @@
 package fill_test
 
 import (
-	"fmt"
-	"github.com/taosdata/tdengine_gorm/clause/fill"
-	"github.com/taosdata/tdengine_gorm/clause/tests"
-	"github.com/taosdata/tdengine_gorm/clause/window"
 	"testing"
+
+	"github.com/thinkgos/TDengine-gorm/clause/fill"
+	"github.com/thinkgos/TDengine-gorm/clause/tests"
+	"github.com/thinkgos/TDengine-gorm/clause/window"
 
 	"gorm.io/gorm/clause"
 )
 
-func TestSetValue(t *testing.T) {
-	var (
-		results = []struct {
-			Clauses []clause.Interface
-			Result  []string
-			Vars    [][][]interface{}
-		}{
-			{
-				Clauses: []clause.Interface{
-					clause.Select{Columns: []clause.Column{{Table: "t_1", Name: "avg(value)"}}},
-					clause.From{Tables: []clause.Table{{Name: "t_1"}}},
-					window.SetInterval(window.Duration{Value: 10, Unit: window.Minute}),
-					fill.SetFill(fill.FillValue).SetValue(12),
-				},
-				Result: []string{"SELECT t_1.avg(value) FROM t_1 INTERVAL(10m) FILL (VALUE,12)"},
-				Vars:   nil,
+func Test_Fill(t *testing.T) {
+	var testCases = []struct {
+		Name    string
+		Clauses []clause.Interface
+		Result  []string
+		Vars    [][][]any
+	}{
+		{
+			Name: "",
+			Clauses: []clause.Interface{
+				clause.Select{Columns: []clause.Column{{Name: "avg(`t_1`.`value`)", Raw: true}}},
+				clause.From{Tables: []clause.Table{{Name: "t_1"}}},
+				window.SetInterval(window.Duration{Value: 10, Unit: window.Minute}),
+				fill.SetFill(fill.FillValue).SetValue(12),
 			},
-		}
-	)
-	for idx, result := range results {
-		t.Run(fmt.Sprintf("case #%v", idx), func(t *testing.T) {
-			tests.CheckBuildClauses(t, result.Clauses, result.Result, result.Vars)
+			Result: []string{"SELECT avg(`t_1`.`value`) FROM `t_1` INTERVAL(10m) FILL (VALUE,12)"},
+			Vars:   nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			tests.CheckBuildClauses(t, tc.Clauses, tc.Result, tc.Vars)
 		})
 	}
 }

@@ -5,43 +5,43 @@ import (
 )
 
 type Using struct {
-	sTable   string
-	tagParis map[string]interface{}
+	stable string
+	tags   map[string]any
 }
 
-func (i Using) Build(builder clause.Builder) {
-	builder.WriteString("USING ")
-	builder.WriteString(i.sTable)
-	var tagNameList = make([]string, 0, len(i.tagParis))
-	var tagValueList = make([]interface{}, 0, len(i.tagParis))
-	for tagName, tagValue := range i.tagParis {
-		tagNameList = append(tagNameList, tagName)
-		tagValueList = append(tagValueList, tagValue)
-	}
-	builder.AddVar(builder, tagNameList)
-	builder.WriteString(" TAGS")
-	builder.AddVar(builder, tagValueList)
-}
-
-//SetUsing Using clause
-func SetUsing(sTable string, tags map[string]interface{}) Using {
+// SetUsing Using clause
+func SetUsing(stable string, tags map[string]any) Using {
 	return Using{
-		sTable:   sTable,
-		tagParis: tags,
+		stable: stable,
+		tags:   tags,
 	}
 }
 
-//ADDTagPair add tag pair to using clause
-func (i Using) ADDTagPair(tagName string, tagValue interface{}) Using {
-	i.tagParis[tagName] = tagValue
-	return i
+func (u Using) Build(builder clause.Builder) {
+	_, _ = builder.WriteString("USING ")
+	builder.WriteQuoted(u.stable)
+	tagNames := make([]string, 0, len(u.tags))
+	tagValues := make([]any, 0, len(u.tags))
+	for tagName, tagValue := range u.tags {
+		tagNames = append(tagNames, tagName)
+		tagValues = append(tagValues, tagValue)
+	}
+	builder.AddVar(builder, tagNames)
+	_, _ = builder.WriteString(" TAGS")
+	builder.AddVar(builder, tagValues)
 }
 
-func (i Using) Name() string {
+// AddTag add tag pair to using clause
+func (u Using) AddTag(tagName string, tagValue any) Using {
+	u.tags[tagName] = tagValue
+	return u
+}
+
+func (Using) Name() string {
 	return "USING"
 }
 
-func (i Using) MergeClause(c *clause.Clause) {
+func (u Using) MergeClause(c *clause.Clause) {
 	c.Name = ""
-	c.Expression = i
+	c.Expression = u
 }

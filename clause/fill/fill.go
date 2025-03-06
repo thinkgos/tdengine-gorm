@@ -1,14 +1,11 @@
 package fill
 
 import (
-	"gorm.io/gorm/clause"
 	"strconv"
+
+	"gorm.io/gorm/clause"
 )
 
-type Fill struct {
-	value    float64
-	fillType Type
-}
 type Type string
 
 const (
@@ -19,6 +16,24 @@ const (
 	FillLinear Type = "LINEAR"
 	FillNext   Type = "NEXT"
 )
+
+type Fill struct {
+	fillType Type
+	value    float64
+}
+
+// SetFill Fill clause
+func SetFill(fillType Type) Fill {
+	return Fill{
+		fillType: fillType,
+	}
+}
+
+// SetValue Set fill value
+func (f Fill) SetValue(value float64) Fill {
+	f.value = value
+	return f
+}
 
 // Build [FILL(fill_mod_and_val)]
 func (f Fill) Build(builder clause.Builder) {
@@ -37,17 +52,4 @@ func (f Fill) Name() string {
 
 func (f Fill) MergeClause(c *clause.Clause) {
 	c.Expression = f
-}
-
-//SetFill Fill clause
-func SetFill(fillType Type) Fill {
-	return Fill{
-		fillType: fillType,
-	}
-}
-
-//SetValue Set fill value
-func (f Fill) SetValue(value float64) Fill {
-	f.value = value
-	return f
 }

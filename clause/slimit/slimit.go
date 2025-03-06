@@ -1,8 +1,9 @@
 package slimit
 
 import (
-	"gorm.io/gorm/clause"
 	"strconv"
+
+	"gorm.io/gorm/clause"
 )
 
 // SLimit limit clause
@@ -48,7 +49,7 @@ func (limit SLimit) MergeClause(clause *clause.Clause) {
 	clause.Expression = limit
 }
 
-//SetSLimit SLimit clause
+// SetSLimit SLimit clause
 func SetSLimit(limit, offset int) SLimit {
 	return SLimit{
 		Limit:  limit,

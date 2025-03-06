@@ -62,7 +62,7 @@ func (m Migrator) FullDataTypeOf(field *schema.Field) (expr clause.Expr) {
 	return
 }
 
-func (m Migrator) AlterColumn(value interface{}, field string) error {
+func (m Migrator) AlterColumn(value any, field string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if field := stmt.Schema.LookUpField(field); field != nil {
 			return m.DB.Exec(
@@ -74,17 +74,17 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 	})
 }
 
-func (m Migrator) RenameColumn(value interface{}, oldName, newName string) error {
+func (m Migrator) RenameColumn(value any, oldName, newName string) error {
 	return errors.New("RenameColumn not support")
 }
 
-func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error {
+func (m Migrator) RenameIndex(value any, oldName, newName string) error {
 	return errors.New("RenameIndex not support")
 }
 
-func (m Migrator) DropConstraint(value interface{}, name string) error {
+func (m Migrator) DropConstraint(value any, name string) error {
 	return errors.New("DropConstraint not support")
 }
-func (m Migrator) AutoMigrate(values ...interface{}) error {
+func (m Migrator) AutoMigrate(values ...any) error {
 	return errors.New("AutoMigrate not support")
 }

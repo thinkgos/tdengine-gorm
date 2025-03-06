@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm/utils"
 )
 
-func AssertObjEqual(t *testing.T, r, e interface{}, names ...string) {
+func AssertObjEqual(t *testing.T, r, e any, names ...string) {
 	for _, name := range names {
 		got := reflect.Indirect(reflect.ValueOf(r)).FieldByName(name).Interface()
 		expect := reflect.Indirect(reflect.ValueOf(e)).FieldByName(name).Interface()
@@ -21,7 +21,7 @@ func AssertObjEqual(t *testing.T, r, e interface{}, names ...string) {
 	}
 }
 
-func AssertEqual(t *testing.T, got, expect interface{}) {
+func AssertEqual(t *testing.T, got, expect any) {
 	if !reflect.DeepEqual(got, expect) {
 		isEqual := func() {
 			if curTime, ok := got.(time.Time); ok {

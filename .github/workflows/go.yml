@@ -1,23 +1,23 @@
 name: Go
 
-on: [ push ]
+on: [push]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     container:
-      image: tdengine/tdengine-beta:latest
+      image: tdengine/tdengine:3.3.5.0
       options: --user root
       volumes:
         - /etc/apt/sources.list:/etc/apt/sources.list
     steps:
-      - uses: actions/checkout@v2
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.14
+          go-version: 1.22
 
       - name: start taosd
         run: nohup taosd &

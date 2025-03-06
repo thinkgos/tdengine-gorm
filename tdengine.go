@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	_ "github.com/taosdata/driver-go/v2/taosSql"
+
+	_ "github.com/taosdata/driver-go/v3/taosSql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -13,17 +14,15 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// DriverName is the default driver name for TDengine.
-const DriverName = "taosSql"
+var _ gorm.Dialector = Dialect{}
+
+// DefaultDriverName is the default driver name for TDengine.
+const DefaultDriverName = "taosSql"
 
 type Dialect struct {
 	DriverName string
 	DSN        string
 	Conn       gorm.ConnPool
-}
-
-func Open(dsn string) gorm.Dialector {
-	return &Dialect{DSN: dsn}
 }
 
 func (dialect Dialect) Name() string {
@@ -32,17 +31,12 @@ func (dialect Dialect) Name() string {
 
 func (dialect Dialect) Initialize(db *gorm.DB) (err error) {
 	if dialect.DriverName == "" {
-		dialect.DriverName = DriverName
+		dialect.DriverName = DefaultDriverName
 	}
 	db.SkipDefaultTransaction = true
 	db.DisableNestedTransaction = true
 	db.DisableAutomaticPing = true
 	db.DisableForeignKeyConstraintWhenMigrating = true
-	callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{
-		LastInsertIDReversed: true,
-		QueryClauses:         []string{"SELECT", "FROM", "WHERE", "WINDOW", "FILL", "GROUP BY", "ORDER BY", "SLIMIT", "LIMIT"},
-		CreateClauses:        []string{"CREATE TABLE", "INSERT", "USING", "VALUES", "ON CONFLICT"},
-	})
 	if dialect.Conn != nil {
 		db.ConnPool = dialect.Conn
 	} else {
@@ -51,10 +45,16 @@ func (dialect Dialect) Initialize(db *gorm.DB) (err error) {
 			return err
 		}
 	}
+	callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{
+		LastInsertIDReversed: true,
+		QueryClauses:         []string{"SELECT", "FROM", "WHERE", "WINDOW", "FILL", "GROUP BY", "ORDER BY", "SLIMIT", "LIMIT"},
+		CreateClauses:        []string{"CREATE TABLE", "INSERT", "USING", "VALUES", "ON CONFLICT", "RETURNING"},
+	})
+
 	for k, v := range dialect.ClauseBuilders() {
 		db.ClauseBuilders[k] = v
 	}
-	return
+	return nil
 }
 
 func (dialect Dialect) ClauseBuilders() map[string]clause.ClauseBuilder {
@@ -101,21 +101,60 @@ func (dialect Dialect) Migrator(db *gorm.DB) gorm.Migrator {
 	}}, dialect}
 }
 
-func (dialect Dialect) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v interface{}) {
-	switch v.(type) {
-	case string:
-		writer.WriteString("'?'")
-	default:
-		writer.WriteByte('?')
-	}
+func (dialect Dialect) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v any) {
+	writer.WriteByte('?')
 }
 
 func (dialect Dialect) QuoteTo(writer clause.Writer, str string) {
-	writer.WriteString(str)
-	return
+	// writer.WriteString(str)
+	var (
+		underQuoted, selfQuoted bool
+		continuousBacktick      int8
+		shiftDelimiter          int8
+	)
+
+	for _, v := range []byte(str) {
+		switch v {
+		case '`':
+			continuousBacktick++
+			if continuousBacktick == 2 {
+				writer.WriteString("``")
+				continuousBacktick = 0
+			}
+		case '.':
+			if continuousBacktick > 0 || !selfQuoted {
+				shiftDelimiter = 0
+				underQuoted = false
+				continuousBacktick = 0
+				writer.WriteByte('`')
+			}
+			writer.WriteByte(v)
+			continue
+		default:
+			if shiftDelimiter-continuousBacktick <= 0 && !underQuoted {
+				writer.WriteByte('`')
+				underQuoted = true
+				if selfQuoted = continuousBacktick > 0; selfQuoted {
+					continuousBacktick -= 1
+				}
+			}
+
+			for ; continuousBacktick > 0; continuousBacktick -= 1 {
+				writer.WriteString("``")
+			}
+
+			writer.WriteByte(v)
+		}
+		shiftDelimiter++
+	}
+
+	if continuousBacktick > 0 && !selfQuoted {
+		writer.WriteString("``")
+	}
+	writer.WriteByte('`')
 }
 
-func (dialect Dialect) Explain(sql string, vars ...interface{}) string {
+func (dialect Dialect) Explain(sql string, vars ...any) string {
 	return logger.ExplainSQL(sql, nil, "'", vars...)
 }
 
@@ -124,21 +163,32 @@ func (dialect Dialect) DataTypeOf(field *schema.Field) string {
 	case schema.Bool:
 		return "bool"
 	case schema.Int, schema.Uint:
-		sqlType := "bigint"
+		constraint := func(sqlType string) string {
+			if field.DataType == schema.Uint {
+				sqlType += " unsigned"
+			}
+			return sqlType
+		}
 		switch {
 		case field.Size <= 8:
-			sqlType = "tinyint"
+			return constraint("tinyint")
 		case field.Size <= 16:
-			sqlType = "smallint"
+			return constraint("smallint")
 		case field.Size <= 32:
-			sqlType = "int"
+			return constraint("int")
+		default:
+			return constraint("bigint")
 		}
-		return sqlType
 	case schema.Float:
+		// TODO: Decimal暂未支持
+		// if field.Precision > 0 {
+		// 	return fmt.Sprintf("decimal(%d, %d)", field.Precision, field.Scale)
+		// }
 		if field.Size <= 32 {
 			return "float"
+		} else {
+			return "double"
 		}
-		return "double"
 	case schema.String:
 		size := field.Size
 		if size == 0 {
@@ -153,15 +203,15 @@ func (dialect Dialect) DataTypeOf(field *schema.Field) string {
 			size = 64
 		}
 		return fmt.Sprintf("BINARY(%d)", size)
+	default:
+		return string(field.DataType)
 	}
-
-	return string(field.DataType)
 }
 
 func (dialect Dialect) SavePoint(tx *gorm.DB, name string) error {
-	return errors.New("not support")
+	return errors.New("not support transaction")
 }
 
 func (dialect Dialect) RollbackTo(tx *gorm.DB, name string) error {
-	return errors.New("not support")
+	return errors.New("not support transaction")
 }

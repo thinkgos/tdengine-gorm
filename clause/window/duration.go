@@ -8,7 +8,7 @@ import (
 
 type UnitType string
 
-//u(微秒)、a(毫秒)、s(秒)、m(分)、h(小时)、d(天)、w(周) n(自然月) 和 y(自然年)
+// u(微秒)、a(毫秒)、s(秒)、m(分)、h(小时)、d(天)、w(周) n(自然月) 和 y(自然年)
 const (
 	Microsecond UnitType = "u"
 	Millisecond UnitType = "a"
@@ -38,7 +38,7 @@ type Duration struct {
 	Unit  UnitType
 }
 
-func NewDurationFromTimeDuration(duration time.Duration) (*Duration, error) {
+func NewDuration(duration time.Duration) (*Duration, error) {
 	if duration <= 0 {
 		return nil, errors.New("duration does not allow negative numbers")
 	}
@@ -50,7 +50,7 @@ func NewDurationFromTimeDuration(duration time.Duration) (*Duration, error) {
 
 func ParseDuration(durationString string) (*Duration, error) {
 	if len(durationString) < 2 {
-		return nil, errors.New("parse duration error")
+		return nil, errors.New("parse duration failure")
 	}
 	unit := UnitType(durationString[len(durationString)-1:])
 	_, valid := durationMap[unit]

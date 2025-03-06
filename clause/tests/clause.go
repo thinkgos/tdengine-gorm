@@ -1,19 +1,20 @@
 package tests
 
 import (
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
-	"gorm.io/gorm/schema"
-	"gorm.io/gorm/utils/tests"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/schema"
+	"gorm.io/gorm/utils/tests"
 )
 
 var db, _ = gorm.Open(DummyDialector{}, nil)
 
-func CheckBuildClauses(t *testing.T, clauses []clause.Interface, results []string, vars [][][]interface{}) {
+func CheckBuildClauses(t *testing.T, clauses []clause.Interface, results []string, vars [][][]any) {
 	var (
 		buildNames    []string
 		buildNamesMap = map[string]bool{}
@@ -50,12 +51,12 @@ func CheckBuildClauses(t *testing.T, clauses []clause.Interface, results []strin
 				matchVars = true
 			}
 			if !matchVars {
-				t.Errorf("Vars expects %+v got %v", stmt.Vars, vars[i])
+				t.Errorf("Vars \nexpects:\n\t%+v\ngot:\n\t%v\n", stmt.Vars, vars[i])
 			}
 			break
 		}
 	}
 	if !matched {
-		t.Errorf("SQL expects in %v got %v", results, sql)
+		t.Errorf("SQL \nexpects:\n\t%v\ngot:\n\t%v\n", results, sql)
 	}
 }
