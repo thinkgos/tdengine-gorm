@@ -3,9 +3,9 @@ package fill_test
 import (
 	"testing"
 
-	"github.com/thinkgos/TDengine-gorm/clause/fill"
-	"github.com/thinkgos/TDengine-gorm/clause/tests"
-	"github.com/thinkgos/TDengine-gorm/clause/window"
+	"github.com/thinkgos/tdengine-gorm/clause/fill"
+	"github.com/thinkgos/tdengine-gorm/clause/tests"
+	"github.com/thinkgos/tdengine-gorm/clause/window"
 
 	"gorm.io/gorm/clause"
 )
@@ -23,7 +23,7 @@ func Test_Fill(t *testing.T) {
 				clause.Select{Columns: []clause.Column{{Name: "avg(`t_1`.`value`)", Raw: true}}},
 				clause.From{Tables: []clause.Table{{Name: "t_1"}}},
 				window.SetInterval(window.Duration{Value: 10, Unit: window.Minute}),
-				fill.SetFill(fill.FillValue).SetValue(12),
+				fill.Fill{fill.FillValue, 12},
 			},
 			Result: []string{"SELECT avg(`t_1`.`value`) FROM `t_1` INTERVAL(10m) FILL (VALUE,12)"},
 			Vars:   nil,

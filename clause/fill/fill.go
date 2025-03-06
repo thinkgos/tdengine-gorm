@@ -6,44 +6,31 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type Type string
+type FillType string
 
 const (
-	FillNone   Type = "NONE"
-	FillValue  Type = "VALUE"
-	FillPrev   Type = "PREV"
-	FillNull   Type = "NULL"
-	FillLinear Type = "LINEAR"
-	FillNext   Type = "NEXT"
+	FillNone   FillType = "NONE"
+	FillValue  FillType = "VALUE"
+	FillPrev   FillType = "PREV"
+	FillNull   FillType = "NULL"
+	FillLinear FillType = "LINEAR"
+	FillNext   FillType = "NEXT"
 )
 
 type Fill struct {
-	fillType Type
-	value    float64
-}
-
-// SetFill Fill clause
-func SetFill(fillType Type) Fill {
-	return Fill{
-		fillType: fillType,
-	}
-}
-
-// SetValue Set fill value
-func (f Fill) SetValue(value float64) Fill {
-	f.value = value
-	return f
+	Type  FillType
+	Value float64 // only support Type = FillValue.
 }
 
 // Build [FILL(fill_mod_and_val)]
 func (f Fill) Build(builder clause.Builder) {
-	builder.WriteString("(")
-	builder.WriteString(string(f.fillType))
-	if f.fillType == FillValue {
-		builder.WriteByte(',')
-		builder.WriteString(strconv.FormatFloat(f.value, 'g', -1, 64))
+	_, _ = builder.WriteString("(")
+	_, _ = builder.WriteString(string(f.Type))
+	if f.Type == FillValue {
+		_ = builder.WriteByte(',')
+		_, _ = builder.WriteString(strconv.FormatFloat(f.Value, 'g', -1, 64))
 	}
-	builder.WriteByte(')')
+	_ = builder.WriteByte(')')
 }
 
 func (f Fill) Name() string {

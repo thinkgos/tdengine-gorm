@@ -20,15 +20,15 @@ func (limit SLimit) Name() string {
 // Build SLIMIT clause
 func (limit SLimit) Build(builder clause.Builder) {
 	if limit.Limit > 0 {
-		builder.WriteString("SLIMIT ")
-		builder.WriteString(strconv.Itoa(limit.Limit))
+		_, _ = builder.WriteString("SLIMIT ")
+		_, _ = builder.WriteString(strconv.Itoa(limit.Limit))
 	}
 	if limit.Offset > 0 {
 		if limit.Limit > 0 {
-			builder.WriteString(" ")
+			_ = builder.WriteByte(' ')
 		}
-		builder.WriteString("SOFFSET ")
-		builder.WriteString(strconv.Itoa(limit.Offset))
+		_, _ = builder.WriteString("SOFFSET ")
+		_, _ = builder.WriteString(strconv.Itoa(limit.Offset))
 	}
 }
 
@@ -47,12 +47,4 @@ func (limit SLimit) MergeClause(clause *clause.Clause) {
 		}
 	}
 	clause.Expression = limit
-}
-
-// SetSLimit SLimit clause
-func SetSLimit(limit, offset int) SLimit {
-	return SLimit{
-		Limit:  limit,
-		Offset: offset,
-	}
 }

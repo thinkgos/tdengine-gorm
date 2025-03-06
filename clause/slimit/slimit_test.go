@@ -3,8 +3,8 @@ package slimit_test
 import (
 	"testing"
 
-	"github.com/thinkgos/TDengine-gorm/clause/slimit"
-	"github.com/thinkgos/TDengine-gorm/clause/tests"
+	"github.com/thinkgos/tdengine-gorm/clause/slimit"
+	"github.com/thinkgos/tdengine-gorm/clause/tests"
 
 	"gorm.io/gorm/clause"
 )
@@ -61,7 +61,7 @@ func Test_SLimit(t *testing.T) {
 		},
 		{
 			"",
-			[]clause.Interface{clause.Select{}, clause.From{}, slimit.SetSLimit(10, 20), slimit.SetSLimit(0, 30), slimit.SetSLimit(50, 0)},
+			[]clause.Interface{clause.Select{}, clause.From{}, slimit.SLimit{Limit: 10, Offset: 20}, slimit.SLimit{Limit: 0, Offset: 30}, slimit.SLimit{Limit: 50, Offset: 0}},
 			"SELECT * FROM `users` SLIMIT 50 SOFFSET 30", nil,
 		},
 	}

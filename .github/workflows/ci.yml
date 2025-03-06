@@ -1,0 +1,39 @@
+name: Tests
+
+on: push
+
+env:
+  GO111MODULE: on
+  GOPROXY: "https://proxy.golang.org"
+  CGO_ENABLED: 1
+
+jobs:
+  build:
+    name: Test on ubuntu
+    runs-on: ubuntu-latest
+    container:
+      image: tdengine/tdengine:3.3.5.0
+      options: --user root
+
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+
+      - name: Install build-essential
+        run: apt update && apt install -y build-essential curl
+
+      - name: Copy taos cfg
+        run: |
+          cp ./.github/workflows/taos.cfg /etc/taos/taos.cfg
+          cp ./.github/workflows/taosadapter.toml /etc/taos/taosadapter.toml
+
+      - name: start taosd
+        run: nohup taosd &
+
+      - name: Test
+        run: go test -v ./...

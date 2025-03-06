@@ -26,8 +26,8 @@ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ8=
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
-github.com/things-go/driver-go/v3 v3.6.1-0.20250225142719-44d496748bef h1:sYI8rPjlNhUEjdbeN7/Tt1pNIpov2uEQldEf5+IpF9E=
-github.com/things-go/driver-go/v3 v3.6.1-0.20250225142719-44d496748bef/go.mod h1:S6OGOinfR0xxxaMGsvBi9cLkYxEIW1p6qqr8QJATTlg=
+github.com/thinkgos/driver-go/v3 v3.6.1-0.20250225142719-44d496748bef h1:aaMBaz+hGUy9LqgNG5QsMMSJnj37KpAwZk1cvBaGvzg=
+github.com/thinkgos/driver-go/v3 v3.6.1-0.20250225142719-44d496748bef/go.mod h1:S6OGOinfR0xxxaMGsvBi9cLkYxEIW1p6qqr8QJATTlg=
 golang.org/x/text v0.14.0 h1:ScX5w1eTa3QqT8oi6+ziP7dTV1S2+ALU0bI+0zXKWiQ=
 golang.org/x/text v0.14.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

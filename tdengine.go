@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	_ "github.com/taosdata/driver-go/v3/taosSql"
+	"github.com/thinkgos/tdengine-gorm/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -101,64 +102,19 @@ func (dialect Dialect) Migrator(db *gorm.DB) gorm.Migrator {
 	}}, dialect}
 }
 
-func (dialect Dialect) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v any) {
+func (Dialect) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v any) {
 	writer.WriteByte('?')
 }
 
-func (dialect Dialect) QuoteTo(writer clause.Writer, str string) {
-	// writer.WriteString(str)
-	var (
-		underQuoted, selfQuoted bool
-		continuousBacktick      int8
-		shiftDelimiter          int8
-	)
-
-	for _, v := range []byte(str) {
-		switch v {
-		case '`':
-			continuousBacktick++
-			if continuousBacktick == 2 {
-				writer.WriteString("``")
-				continuousBacktick = 0
-			}
-		case '.':
-			if continuousBacktick > 0 || !selfQuoted {
-				shiftDelimiter = 0
-				underQuoted = false
-				continuousBacktick = 0
-				writer.WriteByte('`')
-			}
-			writer.WriteByte(v)
-			continue
-		default:
-			if shiftDelimiter-continuousBacktick <= 0 && !underQuoted {
-				writer.WriteByte('`')
-				underQuoted = true
-				if selfQuoted = continuousBacktick > 0; selfQuoted {
-					continuousBacktick -= 1
-				}
-			}
-
-			for ; continuousBacktick > 0; continuousBacktick -= 1 {
-				writer.WriteString("``")
-			}
-
-			writer.WriteByte(v)
-		}
-		shiftDelimiter++
-	}
-
-	if continuousBacktick > 0 && !selfQuoted {
-		writer.WriteString("``")
-	}
-	writer.WriteByte('`')
+func (Dialect) QuoteTo(writer clause.Writer, str string) {
+	utils.QuoteTo(writer, str)
 }
 
-func (dialect Dialect) Explain(sql string, vars ...any) string {
+func (Dialect) Explain(sql string, vars ...any) string {
 	return logger.ExplainSQL(sql, nil, "'", vars...)
 }
 
-func (dialect Dialect) DataTypeOf(field *schema.Field) string {
+func (Dialect) DataTypeOf(field *schema.Field) string {
 	switch field.DataType {
 	case schema.Bool:
 		return "bool"
@@ -208,10 +164,10 @@ func (dialect Dialect) DataTypeOf(field *schema.Field) string {
 	}
 }
 
-func (dialect Dialect) SavePoint(tx *gorm.DB, name string) error {
+func (Dialect) SavePoint(tx *gorm.DB, name string) error {
 	return errors.New("not support transaction")
 }
 
-func (dialect Dialect) RollbackTo(tx *gorm.DB, name string) error {
+func (Dialect) RollbackTo(tx *gorm.DB, name string) error {
 	return errors.New("not support transaction")
 }

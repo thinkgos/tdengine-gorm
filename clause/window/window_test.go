@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thinkgos/TDengine-gorm/clause/tests"
-	"github.com/thinkgos/TDengine-gorm/clause/window"
+	"github.com/thinkgos/tdengine-gorm/clause/tests"
+	"github.com/thinkgos/tdengine-gorm/clause/window"
 
 	"gorm.io/gorm/clause"
 )

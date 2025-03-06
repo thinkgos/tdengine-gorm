@@ -7,17 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thinkgos/TDengine-gorm/clause/create"
-	"github.com/thinkgos/TDengine-gorm/clause/fill"
-	"github.com/thinkgos/TDengine-gorm/clause/using"
-	"github.com/thinkgos/TDengine-gorm/clause/window"
+	"github.com/thinkgos/tdengine-gorm/clause/create"
+	"github.com/thinkgos/tdengine-gorm/clause/fill"
+	"github.com/thinkgos/tdengine-gorm/clause/using"
+	"github.com/thinkgos/tdengine-gorm/clause/window"
 	"gorm.io/gorm"
 )
 
 const (
-	testDb    = "gorm_test"
-	dsn       = "root:taosdata@tcp(10.110.18.131:6030)/"
-	dsnWithDb = dsn + testDb
+	testDb       = "gorm_test"
+	dsn          = "root:taosdata@tcp(localhost:6030)/"
+	dsnWithoutDb = dsn + "?loc=Local"
+	dsnWithDb    = dsn + testDb + "?loc=Local"
 )
 
 func Test_Dialect(t *testing.T) {
@@ -122,21 +123,48 @@ func Test_Dialect(t *testing.T) {
 	}
 }
 
+const TestStb1 = "stb_1"
+
+type TestTb1 struct {
+	TS    time.Time
+	Value int64
+}
+
+func (*TestTb1) TableName() string {
+	return "tb_1"
+}
+
+type TestTb2 struct {
+	TS    time.Time
+	Value int64
+}
+
+func (*TestTb2) TableName() string {
+	return "tb_2"
+}
+
+type TestTbAggregate struct {
+	TS    time.Time
+	Value int64
+}
+
+func (*TestTbAggregate) TableName() string {
+	return "tb_aggregate"
+}
+
 func Test_Clause(t *testing.T) {
-	dsnWithoutDB := dsn + "?loc=Local"
-	nativeDB, err := sql.Open(DefaultDriverName, dsnWithoutDB)
+	nativeDb, err := sql.Open(DefaultDriverName, dsnWithoutDb)
 	if err != nil {
-		t.Errorf("connect db error:%v", err)
+		t.Errorf("connect db error: %v", err)
 		return
 	}
-	_, err = nativeDB.Exec("create database if not exists `gorm_test`")
+	_, err = nativeDb.Exec("CREATE DATABASE IF NOT EXISTS `gorm_test`")
+	nativeDb.Close()
 	if err != nil {
-		t.Errorf("create database error %v", err)
+		t.Errorf("create database error: %v", err)
 		return
 	}
-	nativeDB.Close()
-	dsn := dsnWithDb + "?loc=Local"
-	db, err := gorm.Open(&Dialect{DSN: dsn})
+	db, err := gorm.Open(&Dialect{DSN: dsnWithDb})
 	if err != nil {
 		t.Errorf("unexpected error:%v", err)
 		return
@@ -144,26 +172,19 @@ func Test_Clause(t *testing.T) {
 	db = db.Debug()
 
 	t.Run("create stable", func(t *testing.T) {
-		stable := create.NewSTable(
-			"stb_1",
-			true,
-			[]*create.Column{{
-				Name:       "ts",
-				ColumnType: create.TimestampType,
-			},
-				{
-					Name:       "value",
-					ColumnType: create.BigUnsignedIntType,
-				}},
-			[]*create.Column{
-				{
-					Name:       "tbn",
-					ColumnType: create.BinaryType,
-					Length:     64,
-				},
-			})
-		err = db.Table("stb_1").
-			Clauses(create.NewCreateTableClause([]*create.Table{stable})).
+		stable := create.NewSTableBuilder(TestStb1).
+			IfNotExists().
+			Columns(
+				&create.Column{Type: create.Timestamp, Name: "ts"},
+				&create.Column{Type: create.BigInt, Name: "value"},
+			).
+			TagColumns(
+				&create.Column{Type: create.Binary, Name: "tbn", Length: 64},
+			).
+			Build()
+
+		err = db.Table(stable.TableName()).
+			Clauses(create.NewCreateTable(stable)).
 			Create(map[string]any{}).Error
 		if err != nil {
 			t.Errorf("create stable error %v", err)
@@ -171,189 +192,181 @@ func Test_Clause(t *testing.T) {
 		}
 	})
 
-	t.Run("create table using stable", func(t *testing.T) {
-		table := create.NewTable(
-			"tb_1",
-			true,
-			nil,
-			"stb_1",
-			map[string]any{
-				"tbn": "tb_1",
-			},
-		)
-		err = db.Table("tb_1").
-			Clauses(create.NewCreateTableClause([]*create.Table{table})).
-			Create(map[string]any{}).Error
-		if err != nil {
-			t.Errorf("create table error %v", err)
-			return
-		}
-	})
-	type Data struct {
-		TS    time.Time
-		Value int64
-	}
 	now := time.Now()
-	randValue := rand.Int63()
-	t.Run("insert data", func(t *testing.T) {
-		err = db.Table("tb_1").
-			Create(&Data{
+	vx1 := rand.Int63()
+
+	t.Run("tb_1", func(t *testing.T) {
+		t.Run("tb_1: create table using stable", func(t *testing.T) {
+			table := create.NewCTableBuilder("tb_1").
+				IfNotExists().
+				BuildWithSTable(TestStb1, map[string]any{"tbn": "tb_1"})
+			err = db.Clauses(create.NewCreateTable(table)).
+				Create(&TestTb1{}).Error
+			if err != nil {
+				t.Errorf("create table error, %v", err)
+				return
+			}
+		})
+		t.Run("tb_1: insert data", func(t *testing.T) {
+			err = db.Create(&TestTb1{
 				TS:    now,
-				Value: randValue,
+				Value: vx1,
 			}).Error
-		if err != nil {
-			t.Errorf("insert data error %v", err)
-			return
-		}
+			if err != nil {
+				t.Errorf("tb_1: insert data error, %v", err)
+				return
+			}
+		})
+		t.Run("tb_1: find data", func(t *testing.T) {
+			var got TestTb1
+
+			err = db.Model(&TestTb1{}).Where("`ts` = ?", now).Find(&got).Error
+			if err != nil {
+				t.Errorf("find data error, %v", err)
+				return
+			}
+			if got.Value != vx1 {
+				t.Errorf("expect value: %v, got: %v", vx1, got.Value)
+				return
+			}
+		})
+		t.Run("tb_1: find via stable", func(t *testing.T) {
+			var got TestTb1
+
+			err = db.Table(TestStb1).Where("`ts` = ?", now).Find(&got).Error
+			if err != nil {
+				t.Errorf("find data by stable error %v", err)
+				return
+			}
+			if got.Value != vx1 {
+				t.Errorf("expect value %v got %v", vx1, got.Value)
+				return
+			}
+		})
 	})
 
 	t1 := now.Add(time.Second)
-	tRandValue := rand.Int63()
-	t.Run("create table when insert data", func(t *testing.T) {
-		//create table when insert data
-		err = db.Table("tb_2").
-			Clauses(using.SetUsing("stb_1", map[string]any{
-				"tbn": "tb_2",
-			})).
-			Create(map[string]any{
-				"ts":    t1,
-				"value": tRandValue,
-			}).Error
-		if err != nil {
-			t.Errorf("create table when insert data error %v", err)
-			return
-		}
-	})
-
-	t.Run("find tb_1 data", func(t *testing.T) {
-		//find tb_1 data
-		var d Data
-		err = db.Table("tb_1").Where("ts = ?", now).Find(&d).Error
-		if err != nil {
-			t.Errorf("find data error %v", err)
-			return
-		}
-		if d.Value != randValue {
-			t.Errorf("expect value %v got %v", randValue, d.Value)
-			return
-		}
-	})
-
-	t.Run("find tb_2 data", func(t *testing.T) {
-		//find tb_2 data
-		var d2 Data
-		err = db.Table("tb_2").Where("ts = ?", t1).Find(&d2).Error
-		if err != nil {
-			t.Errorf("find data error %v", err)
-			return
-		}
-		if d2.Value != tRandValue {
-			t.Errorf("expect value %v got %v", tRandValue, d2.Value)
-			return
-		}
-	})
-
-	t.Run("find by stable", func(t *testing.T) {
-		// find by stable
-		var d3 Data
-		err = db.Table("stb_1").Where("ts = ?", now).Find(&d3).Error
-		if err != nil {
-			t.Errorf("find data by stable error %v", err)
-			return
-		}
-		if d3.Value != randValue {
-			t.Errorf("expect value %v got %v", randValue, d3.Value)
-			return
-		}
-	})
 	t2 := now.Add(time.Second * 2)
 	t3 := now.Add(time.Second * 3)
 	v1 := 11
 	v2 := 12
 	v3 := 13
-	//aggregate query
-	t.Run("aggregate insert data", func(t *testing.T) {
-		err = db.Table("tb_aggregate").
-			Clauses(using.SetUsing("stb_1", map[string]any{
-				"tbn": "tb_aggregate",
-			})).
-			Create([]map[string]any{
+	vx2 := rand.Int63()
+	t.Run("tb_2", func(t *testing.T) {
+		t.Run("tb_2: create table using stable when insert data", func(t *testing.T) {
+			err = db.Clauses(using.SetUsing(TestStb1, map[string]any{"tbn": "tb_2"})).
+				Create(&TestTb2{
+					TS:    t1,
+					Value: vx2,
+				}).Error
+			if err != nil {
+				t.Errorf("tb_2: create table when insert data error, %v", err)
+				return
+			}
+		})
+		t.Run("tb_2: find data", func(t *testing.T) {
+			var got TestTb2
+
+			err = db.Model(&TestTb2{}).Where("`ts` = ?", t1).Find(&got).Error
+			if err != nil {
+				t.Errorf("find data error %v", err)
+				return
+			}
+			if got.Value != vx2 {
+				t.Errorf("expect value: %v, got: %v", vx2, got.Value)
+				return
+			}
+		})
+	})
+
+	t.Run("tb_aggregate", func(t *testing.T) {
+		t.Run("tb_aggregate: create table using stable when insert dat", func(t *testing.T) {
+			err = db.Clauses(using.SetUsing(TestStb1, map[string]any{"tbn": "tb_aggregate"})).
+				Create([]*TestTbAggregate{
+					{t1, int64(v1)},
+					{t2, int64(v2)},
+					{t3, int64(v3)},
+				}).Error
+			if err != nil {
+				t.Errorf("tb_aggregate: create table using stable when insert data error, %v", err)
+				return
+			}
+		})
+		t.Run("tb_aggregate: query avg", func(t *testing.T) {
+			var result []map[string]any
+
+			err = db.Table("tb_aggregate").
+				Select("avg(`value`) as v").
+				Where("`ts` >= ?", now.Add(time.Second)).
+				Where("`ts` <= ?", now.Add(time.Second*3)).
+				Find(&result).Error
+			if err != nil {
+				t.Errorf("aggregate query error %v", err)
+				return
+			}
+			expectR1 := []map[string]any{
 				{
-					"ts":    t1,
-					"value": v1,
-				}, {
-					"ts":    t2,
-					"value": v2,
-				}, {
-					"ts":    t3,
-					"value": v3,
+					"v": float64(12),
 				},
-			}).Error
+			}
+			if !resultMapEqual(expectR1, result) {
+				t.Errorf("expect %v got %v", expectR1, result)
+				return
+			}
+		})
+
+		t.Run("tb_aggregate: query time window", func(t *testing.T) {
+			var result2 []map[string]any
+			wd, err := window.NewDuration(time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = db.Table("tb_aggregate").
+				Select("`ts`, max(`value`) as v").
+				Where("`ts` >= ?", now.Add(time.Second)).
+				Where("`ts` <= ?", now.Add(time.Second*4)).
+				Clauses(
+					window.SetInterval(*wd),
+					fill.Fill{Type: fill.FillNull},
+				).
+				Find(&result2).Error
+			if err != nil {
+				t.Errorf("aggregate query error %v", err)
+				return
+			}
+			expectR2 := []map[string]any{
+				{
+					"ts": now.Add(time.Second),
+					"v":  int64(11),
+				},
+				{
+					"ts": now.Add(time.Second * 2),
+					"v":  int64(12),
+				},
+				{
+					"ts": now.Add(time.Second * 3),
+					"v":  int64(13),
+				},
+				{
+					"ts": now.Add(time.Second * 4),
+					"v":  nil,
+				},
+			}
+			if !resultMapEqual(result2, expectR2) {
+				t.Errorf("aggregate query expect %v got %v", result2, expectR2)
+				return
+			}
+		})
+	})
+
+	t.Run("stb_1: delete data", func(t *testing.T) {
+		err = db.Table(TestStb1).Where("`ts` <= ?", now).Delete(map[string]any{}).Error
 		if err != nil {
-			t.Errorf("create table when insert data error %v", err)
+			t.Errorf("stb_1: delete data, %v", err)
 			return
 		}
 	})
 
-	t.Run("aggregate query: avg", func(t *testing.T) {
-		var result []map[string]any
-		err = db.Table("tb_aggregate").Select("avg(`value`) as v").Where("`ts` >= ? and `ts` <= ?", now.Add(time.Second), now.Add(time.Second*3)).Find(&result).Error
-		if err != nil {
-			t.Errorf("aggregate query error %v", err)
-			return
-		}
-		expectR1 := []map[string]any{
-			{
-				"v": float64(12),
-			},
-		}
-		if !resultMapEqual(expectR1, result) {
-			t.Errorf("expect %v got %v", expectR1, result)
-			return
-		}
-	})
-
-	t.Run("aggregate query: time window", func(t *testing.T) {
-		var result2 []map[string]any
-		windowD, err := window.NewDuration(time.Second)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = db.Table("tb_aggregate").
-			Select("max(`value`) as v").
-			Where("ts >= ? and ts <= ?", now.Add(time.Second), now.Add(time.Second*4)).
-			Clauses(
-				window.SetInterval(*windowD),
-				fill.SetFill(fill.FillNull),
-			).
-			Find(&result2).Error
-		if err != nil {
-			t.Errorf("aggregate query error %v", err)
-			return
-		}
-		expectR2 := []map[string]any{
-			{
-				"ts": now.Add(time.Second),
-				"v":  float64(11),
-			},
-			{
-				"ts": now.Add(time.Second * 2),
-				"v":  float64(12),
-			},
-			{
-				"ts": now.Add(time.Second * 3),
-				"v":  float64(13),
-			},
-			{
-				"ts": now.Add(time.Second * 4),
-				"v":  nil,
-			},
-		}
-		if !resultMapEqual(result2, expectR2) {
-			t.Errorf("aggregate query expect %v got %v", result2, expectR2)
-			return
-		}
-	})
 }
 
 func resultMapEqual(m1, m2 []map[string]any) bool {
@@ -364,7 +377,6 @@ func resultMapEqual(m1, m2 []map[string]any) bool {
 		if len(m1[i]) != len(m2[i]) {
 			return false
 		}
-
 	}
 	for i, m := range m1 {
 		for s, v := range m {

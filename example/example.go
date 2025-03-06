@@ -6,20 +6,20 @@ import (
 	"math/rand"
 	"time"
 
-	tdengine_gorm "github.com/thinkgos/TDengine-gorm"
-	"github.com/thinkgos/TDengine-gorm/clause/create"
-	"github.com/thinkgos/TDengine-gorm/clause/fill"
-	"github.com/thinkgos/TDengine-gorm/clause/using"
-	"github.com/thinkgos/TDengine-gorm/clause/window"
+	tdengine_gorm "github.com/thinkgos/tdengine-gorm"
+	"github.com/thinkgos/tdengine-gorm/clause/create"
+	"github.com/thinkgos/tdengine-gorm/clause/fill"
+	"github.com/thinkgos/tdengine-gorm/clause/using"
+	"github.com/thinkgos/tdengine-gorm/clause/window"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-const testDbUri = "root:taosdata@/tcp(10.110.18.131:6030)"
+const testDsn = "root:taosdata@/tcp(127.0.0.1:6030)"
 
 type Data struct {
 	TS    time.Time
-	Value float64
+	Value int64
 }
 
 func main() {
@@ -28,33 +28,32 @@ func main() {
 	//connect to the database
 	db := connect()
 	//create a sTable
-	//CREATE STABLE IF NOT EXISTS `stb_1` (`ts` TIMESTAMP,`value` DOUBLE) TAGS(`tbn` BINARY(64))
+	// CREATE STABLE IF NOT EXISTS `stb_1` (`ts` TIMESTAMP,`value` BIGINT) TAGS(`tbn` BINARY(64))
 	createSTable(db)
 
-	//CREATE TABLE IF NOT EXISTS `tb_1` USING `stb_1`(`tbn`) TAGS ('tb_1')
+	// CREATE TABLE IF NOT EXISTS `tb_1` USING `stb_1`(`tbn`) TAGS ('tb_1')
 	createTableUsingStable(db)
-	return
 	now := time.Now()
-	randValue := rand.Float64()
+	randValue := rand.Int63()
 
-	//INSERT INTO tb_1 (ts,value) VALUES ('2021-08-11 09:43:00.041',0.604660)
+	// INSERT INTO `tb_1` (`ts`,`value`) VALUES ('2021-08-11 09:43:00.041',0.604660)
 	insertData(db, "tb_1", now, randValue)
 	t1 := now.Add(time.Second)
-	randValue2 := rand.Float64()
+	randValue2 := rand.Int63()
 
-	//INSERT INTO tb_2 USING stb_1('tbn') TAGS('tb_2') (ts,value) VALUES ('2021-08-11 09:43:01.041',0.940509)
+	// INSERT INTO tb_2 USING stb_1('tbn') TAGS('tb_2') (`ts`,`value`) VALUES ('2021-08-11 09:43:01.041',0.940509)
 	automaticTableCreationWhenInsertingData(db, "tb_2", t1, randValue2)
-	//SELECT * FROM tb_1 WHERE ts = '2021-08-11 09:43:00.041'
+	// SELECT * FROM `tb_1` WHERE `ts` = '2021-08-11 09:43:00.041'
 	tb1Data := queryData(db, "tb_1", now)
 	if tb1Data.Value != randValue {
 		log.Fatalf("expect value %v got %v", randValue, tb1Data.Value)
 	}
-	//SELECT * FROM tb_2 WHERE ts = '2021-08-11 09:43:01.041'
+	//SELECT * FROM `tb_2` WHERE `ts` = '2021-08-11 09:43:01.041'
 	tb2Data := queryData(db, "tb_2", t1)
 	if tb2Data.Value != randValue2 {
 		log.Fatalf("expect value %v got %v", randValue, tb2Data.Value)
 	}
-	//SELECT * FROM stb_1 WHERE ts = '2021-08-11 09:43:00.041'
+	//SELECT * FROM `stb_1` WHERE `ts` = '2021-08-11 09:43:00.041'
 	stbData := queryData(db, "stb_1", now)
 	if stbData.Value != randValue {
 		log.Fatalf("expect value %v got %v", randValue, stbData.Value)
@@ -80,11 +79,11 @@ func main() {
 		},
 	})
 	//aggregate query
-	//SELECT avg(value) as v FROM tb_aggregate WHERE ts >= '2021-08-11 09:43:01.041' and ts <= '2021-08-11 09:43:03.041'
-	resultAvg := aggregateQuery(db, "tb_aggregate", "avg(value) as v", t1, t3, nil)
+	//SELECT avg(`value`) as v FROM tb_aggregate WHERE ts >= '2021-08-11 09:43:01.041' and ts <= '2021-08-11 09:43:03.041'
+	resultAvg := aggregateQuery(db, "tb_aggregate", "avg(`value`) as v", t1, t3, nil)
 	expectAvg := []map[string]any{
 		{
-			"v": float64(12),
+			"v": int64(12),
 		},
 	}
 	if !resultMapEqual(expectAvg, resultAvg) {
@@ -94,23 +93,23 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//SELECT max(value) as v FROM tb_aggregate WHERE ts >= '2021-08-11 09:43:01.041' and ts <= '2021-08-11 09:43:04.041' INTERVAL(1000000u) FILL (NULL)
-	resultWindowMax := aggregateQuery(db, "tb_aggregate", "max(value) as v", t1, t4, []clause.Expression{
+	//SELECT max(`value`) as v FROM tb_aggregate WHERE ts >= '2021-08-11 09:43:01.041' and ts <= '2021-08-11 09:43:04.041' INTERVAL(1000000u) FILL (NULL)
+	resultWindowMax := aggregateQuery(db, "tb_aggregate", "max(`value`) as v", t1, t4, []clause.Expression{
 		window.SetInterval(*windowD),
-		fill.SetFill(fill.FillNull),
+		fill.Fill{Type: fill.FillNull},
 	})
 	expectWindowMax := []map[string]any{
 		{
 			"ts": now.Add(time.Second),
-			"v":  float64(11),
+			"v":  int64(11),
 		},
 		{
 			"ts": now.Add(time.Second * 2),
-			"v":  float64(12),
+			"v":  int64(12),
 		},
 		{
 			"ts": now.Add(time.Second * 3),
-			"v":  float64(13),
+			"v":  int64(13),
 		},
 		{
 			"ts": now.Add(time.Second * 4),
@@ -123,7 +122,7 @@ func main() {
 }
 
 func createDatabase() {
-	dsnWithoutDB := testDbUri + "/?loc=Local"
+	dsnWithoutDB := testDsn + "/?loc=Local"
 	nativeDB, err := sql.Open(tdengine_gorm.DefaultDriverName, dsnWithoutDB)
 	if err != nil {
 		log.Fatalf("connect db error:%v", err)
@@ -138,7 +137,7 @@ func createDatabase() {
 }
 
 func connect() *gorm.DB {
-	dsn := testDbUri + "/gorm_test?loc=Local"
+	dsn := testDsn + "/gorm_test?loc=Local"
 	db, err := gorm.Open(&tdengine_gorm.Dialect{DSN: dsn})
 	if err != nil {
 		log.Fatalf("unexpected error:%v", err)
@@ -149,20 +148,28 @@ func connect() *gorm.DB {
 
 func createSTable(db *gorm.DB) {
 	//create stable
-	stable := create.NewSTable("stb_1", true, []*create.Column{{
-		Name:       "ts",
-		ColumnType: create.TimestampType,
-	}, {
-		Name:       "value",
-		ColumnType: create.DoubleType,
-	}}, []*create.Column{
-		{
-			Name:       "tbn",
-			ColumnType: create.BinaryType,
-			Length:     64,
-		},
-	})
-	err := db.Table("stb_1").Clauses(create.NewCreateTableClause([]*create.Table{stable})).Create(map[string]any{}).Error
+	stable := create.NewSTableBuilder("stb_1").
+		IfNotExists().
+		Columns(
+			[]*create.Column{
+				{
+					Name: "ts",
+					Type: create.Timestamp,
+				},
+				{
+					Name: "value",
+					Type: create.Double,
+				},
+			}...,
+		).
+		TagColumns(&create.Column{
+			Name:   "tbn",
+			Type:   create.Binary,
+			Length: 64,
+		}).
+		Build()
+
+	err := db.Table("stb_1").Clauses(create.NewCreateTable(stable)).Create(map[string]any{}).Error
 	if err != nil {
 		log.Fatalf("create sTable error %v", err)
 	}
@@ -170,10 +177,10 @@ func createSTable(db *gorm.DB) {
 
 func createTableUsingStable(db *gorm.DB) {
 	// create table using sTable
-	table := create.NewTable("tb_1", true, nil, "stb_1", map[string]any{
-		"tbn": "tb_1",
-	})
-	err := db.Table("tb_1").Clauses(create.NewCreateTableClause([]*create.Table{table})).Create(map[string]any{}).Error
+	table := create.NewCTableBuilder("tb_1").
+		IfNotExists().
+		BuildWithSTable("stb_1", map[string]any{"tbn": "tb_1"})
+	err := db.Table("tb_1").Clauses(create.NewCreateTable(table)).Create(map[string]any{}).Error
 	if err != nil {
 		log.Fatalf("create table error %v", err)
 	}
@@ -205,7 +212,7 @@ func automaticTableCreationWhenInsertingData(db *gorm.DB, tableName string, ts t
 
 func queryData(db *gorm.DB, tableName string, ts time.Time) *Data {
 	var d Data
-	err := db.Table(tableName).Where("ts = ?", ts).Find(&d).Error
+	err := db.Table(tableName).Where("`ts` = ?", ts).Find(&d).Error
 	if err != nil {
 		log.Fatalf("find data error %v", err)
 	}
@@ -224,7 +231,7 @@ func automaticTableCreationWhenInsertingMultiData(db *gorm.DB, tableName string,
 
 func aggregateQuery(db *gorm.DB, tableName string, query string, start, end time.Time, conds []clause.Expression) []map[string]any {
 	var result []map[string]any
-	err := db.Table(tableName).Select(query).Where("ts >= ? and ts <= ?", start, end).Clauses(conds...).Find(&result).Error
+	err := db.Table(tableName).Select(query).Where("`ts` >= ? and `ts` <= ?", start, end).Clauses(conds...).Find(&result).Error
 	if err != nil {
 		log.Fatalf("aggregate query error %v", err)
 	}
