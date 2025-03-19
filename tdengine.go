@@ -26,7 +26,7 @@ type Dialect struct {
 	Conn       gorm.ConnPool
 }
 
-func (dialect Dialect) Name() string {
+func (Dialect) Name() string {
 	return "tdengine"
 }
 
@@ -58,7 +58,7 @@ func (dialect Dialect) Initialize(db *gorm.DB) (err error) {
 	return nil
 }
 
-func (dialect Dialect) ClauseBuilders() map[string]clause.ClauseBuilder {
+func (Dialect) ClauseBuilders() map[string]clause.ClauseBuilder {
 	return map[string]clause.ClauseBuilder{
 		"INSERT": func(c clause.Clause, builder clause.Builder) {
 			if _, ok := c.Expression.(clause.Insert); ok {
@@ -90,7 +90,7 @@ func (dialect Dialect) ClauseBuilders() map[string]clause.ClauseBuilder {
 		},
 	}
 }
-func (dialect Dialect) DefaultValueOf(field *schema.Field) clause.Expression {
+func (Dialect) DefaultValueOf(field *schema.Field) clause.Expression {
 	return clause.Expr{SQL: "NULL"}
 }
 

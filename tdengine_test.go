@@ -366,8 +366,7 @@ func Test_Clause(t *testing.T) {
 			return
 		}
 	})
-
-}
+} // nolint: gocyclo
 
 func resultMapEqual(m1, m2 []map[string]any) bool {
 	if len(m1) != len(m2) {
