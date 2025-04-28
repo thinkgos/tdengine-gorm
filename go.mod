@@ -2,10 +2,10 @@ module github.com/thinkgos/tdengine-gorm
 
 go 1.22
 
-replace github.com/taosdata/driver-go/v3 v3.6.0 => github.com/thinkgos/driver-go/v3 v3.6.1-0.20250225142719-44d496748bef
+replace github.com/taosdata/driver-go/v3 v3.7.0 => github.com/thinkgos/driver-go/v3 v3.6.1-0.20250225142719-44d496748bef
 
 require (
-	github.com/taosdata/driver-go/v3 v3.6.0
+	github.com/taosdata/driver-go/v3 v3.7.0
 	gorm.io/gorm v1.26.0
 )
 
