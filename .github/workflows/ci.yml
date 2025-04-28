@@ -53,7 +53,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.go-version }}-go-ci-
 
       - name: Install build-essential
-        run: apt update && apt install -y build-essential curl
+        run: apt update && apt install -y build-essential curl git
 
       - name: Copy taos cfg
         run: |
