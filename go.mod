@@ -6,7 +6,7 @@ replace github.com/taosdata/driver-go/v3 v3.7.0 => github.com/thinkgos/driver-go
 
 require (
 	github.com/taosdata/driver-go/v3 v3.7.0
-	gorm.io/gorm v1.30.1
+	gorm.io/gorm v1.30.2
 )
 
 require (
